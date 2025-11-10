@@ -21,6 +21,7 @@
 #include <esp_chip_info.h>
 #include <esp_console.h>
 #include <esp_flash.h>
+#include <esp_idf_version.h>
 #include <esp_log.h>
 #include <esp_sleep.h>
 #include <freertos/FreeRTOS.h>
@@ -336,7 +337,17 @@ static int light_sleep(int argc, char** argv) {
         }
         ESP_LOGI(TAG, "Enabling wakeup on GPIO%d, wakeup on %s level", io_num, level ? "HIGH" : "LOW");
 
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+        // ESP-IDF v5.0+ uses rtc_gpio_wakeup_enable
+        if (!rtc_gpio_is_valid_gpio(io_num)) {
+            ESP_LOGE(TAG, "GPIO %d is not an RTC GPIO", io_num);
+            return 1;
+        }
+        ESP_ERROR_CHECK(rtc_gpio_wakeup_enable(io_num, level));
+#else
+        // ESP-IDF v4.4 and earlier use gpio_wakeup_enable
         ESP_ERROR_CHECK(gpio_wakeup_enable(io_num, level ? GPIO_INTR_HIGH_LEVEL : GPIO_INTR_LOW_LEVEL));
+#endif
     }
     if (io_count > 0) {
         ESP_ERROR_CHECK(esp_sleep_enable_gpio_wakeup());
